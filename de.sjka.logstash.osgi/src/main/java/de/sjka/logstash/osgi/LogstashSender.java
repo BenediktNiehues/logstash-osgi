@@ -116,10 +116,14 @@ public class LogstashSender implements Runnable, LogListener {
 			values.put("exception-type", logEntry.getException().getClass().getName());
 			values.put("exception-message", logEntry.getException().getMessage());
 			values.put("exception-stacktrace", stackTraceString);
-			values.put("exception-class", stackTrace[0].getClassName());
-			values.put("exception-method", stackTrace[0].getMethodName());
-			values.put("exception-line", stackTrace[0].getLineNumber() + "");
-			values.put("error-id", hash(stackTrace[0].getClassName(), stackTrace[0].getMethodName(), logEntry.getException().getClass().getName()));
+			if (stackTrace != null && stackTrace.length > 0) {
+				values.put("exception-class", stackTrace[0].getClassName());
+				values.put("exception-method", stackTrace[0].getMethodName());
+				values.put("exception-line", stackTrace[0].getLineNumber() + "");
+				values.put("error-id", hash(stackTrace[0].getClassName(), stackTrace[0].getMethodName(), logEntry.getException().getClass().getName()));
+			} else {
+				values.put("error-id", hash(logEntry.getBundle().getSymbolicName(), logEntry.getMessage()));
+			}
 		} else {
 			values.put("error-id", hash(logEntry.getBundle().getSymbolicName(), logEntry.getMessage()));
 		}
