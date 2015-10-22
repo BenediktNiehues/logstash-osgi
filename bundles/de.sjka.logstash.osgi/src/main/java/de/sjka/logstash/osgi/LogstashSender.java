@@ -2,6 +2,7 @@ package de.sjka.logstash.osgi;
 
 import java.io.DataOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.io.UnsupportedEncodingException;
@@ -14,12 +15,23 @@ import java.net.SocketException;
 import java.net.URL;
 import java.net.UnknownHostException;
 import java.nio.charset.StandardCharsets;
+import java.security.KeyManagementException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Enumeration;
+import java.util.Map.Entry;
+import java.util.Properties;
 import java.util.concurrent.BlockingDeque;
 import java.util.concurrent.LinkedBlockingDeque;
 
+import javax.net.ssl.HostnameVerifier;
+import javax.net.ssl.HttpsURLConnection;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLSession;
+import javax.net.ssl.SSLSocketFactory;
+import javax.net.ssl.TrustManager;
+
+import org.apache.commons.codec.binary.Base64;
 import org.json.simple.JSONObject;
 import org.osgi.framework.Bundle;
 import org.osgi.service.log.LogEntry;
@@ -28,26 +40,62 @@ import org.osgi.service.log.LogService;
 
 public class LogstashSender implements Runnable, LogListener {
 
-	private static final String PROPERTY_HOST = "de.sjka.logstash.host";
+	private static final String PROPERTY_URL = "de.sjka.logstash.url";
+	private static final String PROPERTY_USERNAME = "de.sjka.logstash.username";
+	private static final String PROPERTY_PASSWORD = "de.sjka.logstash.password";
+	private static final String PROPERTY_NO_CHECK = "de.sjka.logstash.nocheck";
 	private static final String PROPERTY_ENABLED = "de.sjka.logstash.enabled";
 
 	private String ipAddress;
 	private BlockingDeque<LogEntry> queue = new LinkedBlockingDeque<>();
 	private Thread thread;
+	private Properties config;
+	
+	final TrustManager[] trustAllCerts = new TrustManager[] { TrustManagerFactory.createTrustManager() };
+	
+	private SSLSocketFactory sslSocketFactory;
 
 	@Override
 	public void run() {
 		System.out.println("Logstash sender started");
 		try {
+			initialize();
 			while (!Thread.interrupted()) {
 				LogEntry entry = queue.takeFirst();
 				process(entry);
 			}
 		} catch (InterruptedException e) {
 			// all good
-			System.out.println("Logstash sender interrupted");
 		}
-		System.out.println("Logstash sender going to die");
+		System.out.println("Logstash sender shutting down");
+	}
+	
+	private void initialize() {
+	    try {
+	    	final SSLContext sslContext = SSLContext.getInstance("SSL");
+			sslContext.init( null, trustAllCerts, new java.security.SecureRandom() );
+			sslSocketFactory = sslContext.getSocketFactory();
+		} catch (KeyManagementException | NoSuchAlgorithmException e) {
+			throw new RuntimeException(e);
+		}
+	}
+
+	private String getConfig(String key, String defaultValue) {
+		if (config == null) {
+			config = new Properties();
+			try (InputStream is = this.getClass().getResourceAsStream("logstash.properties")) {
+				config.load(is);
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+		}
+		String ret = null;
+		if (config != null) {
+			ret = config.getProperty(key, defaultValue);
+		} else {
+			ret = defaultValue;
+		}
+		return ret;
 	}
 
 	@Override
@@ -57,25 +105,47 @@ public class LogstashSender implements Runnable, LogListener {
 
 	private void process(LogEntry logEntry) {
 		if (logEntry.getLevel() <= LogService.LOG_WARNING) {
-			if (!"true".equals(System.getProperty(PROPERTY_ENABLED, "false"))) {
+			if (!"true".equals(getConfig(PROPERTY_ENABLED, "false"))) {
 				return;
 			};
-			String host = System.getProperty(PROPERTY_HOST, "127.0.0.1:2800");
+			String request = getConfig(PROPERTY_URL, "http://127.0.0.1:2800/");
+			if (!request.endsWith("/")) {
+				request += "/";
+			}
 			try {
 				JSONObject values = serializeLogEntry(logEntry);
 
 				String payload = values.toJSONString();
 				byte[] postData = payload.getBytes(StandardCharsets.UTF_8);
 				int postDataLength = postData.length;
-				String request = "http://" + host + "/osgi";
+
+				String username = getConfig(PROPERTY_USERNAME, "");
+				String password = getConfig(PROPERTY_PASSWORD, "");
+				
+				String authString = username + ":" + password;
+				byte[] authEncBytes = Base64.encodeBase64(authString.getBytes());
+				String authStringEnc = new String(authEncBytes);
+				
 				URL url = new URL(request);
+				
 				HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+				if (request.startsWith("https") && "true".equals(getConfig(PROPERTY_NO_CHECK, "false"))) {
+					((HttpsURLConnection) conn).setSSLSocketFactory(sslSocketFactory);
+					((HttpsURLConnection) conn).setHostnameVerifier(new HostnameVerifier() {
+				    	public boolean verify(String hostname, SSLSession session)		            {
+				    		return true;
+				    	}
+			        });
+				}
 				conn.setDoOutput(true);
 				conn.setInstanceFollowRedirects(false);
 				conn.setRequestMethod("PUT");
 				conn.setRequestProperty("Content-Type", "application/json");
 				conn.setRequestProperty("charset", "utf-8");
 				conn.setRequestProperty("Content-Length", Integer.toString(postDataLength));
+				if (username != null && !"".equals(username)) {
+					conn.setRequestProperty("Authorization", "Basic " + authStringEnc);				
+				}
 				conn.setUseCaches(false);
 				try (DataOutputStream wr = new DataOutputStream(conn.getOutputStream())) {
 					wr.write(postData);
@@ -84,7 +154,7 @@ public class LogstashSender implements Runnable, LogListener {
 					System.err.println("Got response " + conn.getResponseCode() + " - " + conn.getResponseMessage());
 				}
 			} catch (ConnectException e) {
-				System.err.println("Could not connect to " + host);
+				System.err.println("Could not connect to " + request);
 			} catch (IOException e) {
 				throw new RuntimeException(e);
 			}
@@ -126,6 +196,9 @@ public class LogstashSender implements Runnable, LogListener {
 			}
 		} else {
 			values.put("error-id", hash(logEntry.getBundle().getSymbolicName(), logEntry.getMessage()));
+		}
+		for (Entry<String, String> entry : new ExtensionProvider().getExtensions().entrySet()) {
+			values.put(entry.getKey(), entry.getValue());
 		}
 		values.put("ip", getIPAddress());
 		return values;

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<site>
+   <feature url="features/de.sjka.logstash.osgi.feature_0.1.0.qualifier.jar" id="de.sjka.logstash.osgi.feature" version="0.1.0.qualifier">
+      <category name="de.sjka.logstash.osgi"/>
+   </feature>
+   <category-def name="de.sjka.logstash.osgi" label="Logstash OSGi"/>
+</site>

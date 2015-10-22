@@ -16,6 +16,7 @@ public class LogReaderServiceTracker extends ServiceTracker<LogReaderService, Lo
 	
 	@Override
 	public LogReaderService addingService(ServiceReference<LogReaderService> reference) {
+		System.out.println("Adding LogstashSender as a listener.");
 		LogReaderService service = super.addingService(reference);
 		service.addLogListener(sender);
 		return service;
@@ -23,6 +24,7 @@ public class LogReaderServiceTracker extends ServiceTracker<LogReaderService, Lo
 	
 	@Override
 	public void remove(ServiceReference<LogReaderService> reference) {
+		System.out.println("Removing LogstashSender from listeners.");
 		LogReaderService service = getService(reference);
 		service.removeLogListener(sender);
 		super.remove(reference);

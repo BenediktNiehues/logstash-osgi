@@ -10,4 +10,6 @@ Import-Package: org.osgi.framework,
  org.osgi.service.log,
  org.osgi.util.tracker
 Bundle-ClassPath: lib/json-simple-1.1.1.jar,
+ lib/commons-codec-1.10.jar,
+ patch/,
  .
