@@ -62,7 +62,15 @@ public class LogstashSender implements Runnable, LogListener {
 			initialize();
 			while (!Thread.interrupted()) {
 				LogEntry entry = queue.takeFirst();
-				process(entry);
+				try {
+					process(entry);
+				} catch (Exception e) {
+					if (e instanceof InterruptedException) {
+						throw e; // leave the loop
+					}
+					queue.putFirst(entry);
+					Thread.sleep(5*1000);
+				}
 			}
 		} catch (InterruptedException e) {
 			// all good
@@ -100,6 +108,10 @@ public class LogstashSender implements Runnable, LogListener {
 
 	@Override
 	public void logged(LogEntry logEntry) {
+		if (queue.size() >= 1024) {
+			System.err.println("Queue is full, therefore dropping a log entry. There is a serious problem!");
+			return;
+		}
 		queue.add(logEntry);
 	}
 
@@ -117,7 +129,6 @@ public class LogstashSender implements Runnable, LogListener {
 
 				String payload = values.toJSONString();
 				byte[] postData = payload.getBytes(StandardCharsets.UTF_8);
-				int postDataLength = postData.length;
 
 				String username = getConfig(PROPERTY_USERNAME, "");
 				String password = getConfig(PROPERTY_PASSWORD, "");
@@ -142,13 +153,16 @@ public class LogstashSender implements Runnable, LogListener {
 				conn.setRequestMethod("PUT");
 				conn.setRequestProperty("Content-Type", "application/json");
 				conn.setRequestProperty("charset", "utf-8");
-				conn.setRequestProperty("Content-Length", Integer.toString(postDataLength));
+				conn.setReadTimeout(30*1000);
+				conn.setConnectTimeout(30*1000);
 				if (username != null && !"".equals(username)) {
 					conn.setRequestProperty("Authorization", "Basic " + authStringEnc);				
 				}
 				conn.setUseCaches(false);
 				try (DataOutputStream wr = new DataOutputStream(conn.getOutputStream())) {
 					wr.write(postData);
+					wr.flush();
+					wr.close();
 				}
 				if (conn.getResponseCode() != 200) {
 					System.err.println("Got response " + conn.getResponseCode() + " - " + conn.getResponseMessage());
@@ -159,6 +173,7 @@ public class LogstashSender implements Runnable, LogListener {
 				throw new RuntimeException(e);
 			}
 		}
+		
 	}
 
 	@SuppressWarnings("unchecked")
