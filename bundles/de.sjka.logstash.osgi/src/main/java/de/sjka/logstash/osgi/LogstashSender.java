@@ -165,10 +165,8 @@ public class LogstashSender implements Runnable, LogListener {
 					wr.close();
 				}
 				if (conn.getResponseCode() != 200) {
-					System.err.println("Got response " + conn.getResponseCode() + " - " + conn.getResponseMessage());
+					throw new IOException("Got response " + conn.getResponseCode() + " - " + conn.getResponseMessage());
 				}
-			} catch (ConnectException e) {
-				System.err.println("Could not connect to " + request);
 			} catch (IOException e) {
 				throw new RuntimeException(e);
 			}
