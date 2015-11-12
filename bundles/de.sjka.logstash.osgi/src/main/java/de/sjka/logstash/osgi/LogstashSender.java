@@ -6,7 +6,6 @@ import java.io.InputStream;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.io.UnsupportedEncodingException;
-import java.net.ConnectException;
 import java.net.HttpURLConnection;
 import java.net.Inet4Address;
 import java.net.InetAddress;
@@ -210,7 +209,7 @@ public class LogstashSender implements Runnable, LogListener {
 		} else {
 			values.put("error-id", hash(logEntry.getBundle().getSymbolicName(), logEntry.getMessage()));
 		}
-		for (Entry<String, String> entry : new ExtensionProvider().getExtensions().entrySet()) {
+        for (Entry<String, String> entry : new ExtensionProvider().getExtensions(logEntry).entrySet()) {
 			values.put(entry.getKey(), entry.getValue());
 		}
 		values.put("ip", getIPAddress());
