@@ -39,7 +39,8 @@ import org.osgi.service.log.LogService;
 
 public class LogstashSender implements Runnable, LogListener {
 
-	private static final String PROPERTY_URL = "de.sjka.logstash.url";
+    private static final int QUEUE_SIZE = 2 * 1024;
+    private static final String PROPERTY_URL = "de.sjka.logstash.url";
 	private static final String PROPERTY_USERNAME = "de.sjka.logstash.username";
 	private static final String PROPERTY_PASSWORD = "de.sjka.logstash.password";
 	private static final String PROPERTY_NO_CHECK = "de.sjka.logstash.nocheck";
@@ -107,8 +108,9 @@ public class LogstashSender implements Runnable, LogListener {
 
 	@Override
 	public void logged(LogEntry logEntry) {
-		if (queue.size() >= 1024) {
-			System.err.println("Queue is full, therefore dropping a log entry. There is a serious problem!");
+        if (queue.size() >= QUEUE_SIZE) {
+            System.err.println(
+                    "The Logstash sender queue is full, an entry will be dropped. All is good, only this log entry won't show up in Kibana.");
 			return;
 		}
 		queue.add(logEntry);
