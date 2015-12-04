@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<scr:component xmlns:scr="http://www.osgi.org/xmlns/scr/v1.1.0" activate="start" name="de.sjka.logstash.osgi.LogstashSender">
+   <implementation class="de.sjka.logstash.osgi.internal.LogstashSender"/>
+   <reference bind="bindLogReaderService" cardinality="0..1" interface="org.osgi.service.log.LogReaderService" name="LogReaderService" policy="dynamic" unbind="unbindLogReaderService"/>
+   <reference bind="bindLogstashConfiguration" cardinality="0..1" interface="de.sjka.logstash.osgi.ILogstashConfiguration" name="ILogstashConfiguration" policy="dynamic" unbind="unbindLogstashConfiguration"/>
+   <reference bind="bindTrustManagerFactory" cardinality="0..1" interface="de.sjka.logstash.osgi.ITrustManagerFactory" name="ITrustManagerFactory" policy="dynamic" unbind="unbindTrustManagerFactory"/>
+   <reference bind="bindLogstashPropertyExtension" cardinality="1..1" interface="de.sjka.logstash.osgi.ILogstashPropertyExtension" name="ILogstashPropertyExtension" policy="static"/>
+</scr:component>
