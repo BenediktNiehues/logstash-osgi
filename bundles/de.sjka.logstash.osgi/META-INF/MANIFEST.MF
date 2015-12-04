@@ -5,7 +5,8 @@ Bundle-SymbolicName: de.sjka.logstash.osgi
 Bundle-Version: 0.1.0.qualifier
 Bundle-Vendor: Simon Kaufmann
 Bundle-RequiredExecutionEnvironment: JavaSE-1.7
-Import-Package: org.osgi.framework,
+Import-Package: de.sjka.logstash.osgi,
+ org.osgi.framework,
  org.osgi.service.log,
  org.osgi.util.tracker
 Bundle-ClassPath: lib/json-simple-1.1.1.jar,
