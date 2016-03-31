@@ -87,12 +87,9 @@ public class LogstashSender implements Runnable, LogListener {
 
 	@Override
 	public void logged(LogEntry logEntry) {
-        if (queue.size() >= QUEUE_SIZE) {
-            System.err.println(
-                    "The Logstash sender queue exceeded its limits, an entry will be dropped and won't show up in Kibana.");
-			return;
+        if (queue.size() < QUEUE_SIZE) {
+        	queue.add(logEntry);
 		}
-		queue.add(logEntry);
 	}
 
 	private void process(LogEntry logEntry) {
