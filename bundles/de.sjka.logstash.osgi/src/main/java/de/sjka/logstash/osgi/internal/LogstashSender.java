@@ -40,6 +40,7 @@ import org.osgi.service.log.LogService;
 
 import de.sjka.logstash.osgi.ILogstashConfiguration;
 import de.sjka.logstash.osgi.ILogstashConfiguration.LogstashConfig;
+import de.sjka.logstash.osgi.ILogstashFilter;
 import de.sjka.logstash.osgi.ILogstashPropertyExtension;
 import de.sjka.logstash.osgi.ITrustManagerFactory;
 
@@ -54,6 +55,7 @@ public class LogstashSender implements Runnable, LogListener {
 	private SSLSocketFactory sslSocketFactory;
     private ILogstashConfiguration logstashConfiguration;
     private Set<ILogstashPropertyExtension> logstashPropertyExtensions = new HashSet<>();
+    private Set<ILogstashFilter> logstashFilters = new HashSet<>();
 
 	@Override
 	public void run() {
@@ -116,6 +118,11 @@ public class LogstashSender implements Runnable, LogListener {
             if (!"true".equals(getConfig(LogstashConfig.ENABLED))) {
 				return;
 			};
+	        for (ILogstashFilter logstashFilter : logstashFilters) {
+	            if (!logstashFilter.apply(logEntry)) {
+	                return;
+	            }
+	        }
             String request = getConfig(LogstashConfig.URL);
 			if (!request.endsWith("/")) {
 				request += "/";
@@ -352,6 +359,14 @@ public class LogstashSender implements Runnable, LogListener {
 
     protected void unbindLogstashPropertyExtension(ILogstashPropertyExtension logstashPropertyExtension) {
         this.logstashPropertyExtensions.remove(logstashPropertyExtension);
+    }
+
+    protected void bindLogstashFilter(ILogstashFilter logstashFilter) {
+        this.logstashFilters.add(logstashFilter);
+    }
+    
+    protected void unbindLogstashFilter(ILogstashFilter logstashFilter) {
+        this.logstashFilters.remove(logstashFilter);
     }
 
 }
