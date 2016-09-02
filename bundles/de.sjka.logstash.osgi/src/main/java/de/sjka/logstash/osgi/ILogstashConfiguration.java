@@ -7,7 +7,8 @@ public interface ILogstashConfiguration {
         USERNAME(""),
         PASSWORD(""),
         SSL_NO_CHECK("false"),
-        ENABLED("false");
+        ENABLED("false"),
+        LOGLEVEL("warning");
 
         private String defaultValue;
 

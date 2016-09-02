@@ -85,6 +85,25 @@ public class LogstashSender implements Runnable, LogListener {
 	    }
 	}
 
+    private int getLogLevelConfig() {
+        String configuredLoglevel = getConfig(LogstashConfig.LOGLEVEL);
+        if (configuredLoglevel != null) {
+            switch (configuredLoglevel.toLowerCase()) {
+                case "debug":
+                    return LogService.LOG_DEBUG;
+                case "error":
+                    return LogService.LOG_ERROR;
+                case "info":
+                    return LogService.LOG_INFO;
+                case "warning":
+                    return LogService.LOG_WARNING;
+                default:
+                    return LogService.LOG_WARNING;
+            }
+        }
+        return LogService.LOG_WARNING;
+    }
+
 	@Override
 	public void logged(LogEntry logEntry) {
         if (queue.size() < QUEUE_SIZE) {
@@ -93,7 +112,7 @@ public class LogstashSender implements Runnable, LogListener {
 	}
 
 	private void process(LogEntry logEntry) {
-		if (logEntry.getLevel() <= LogService.LOG_WARNING) {
+        if (logEntry.getLevel() <= getLogLevelConfig()) {
             if (!"true".equals(getConfig(LogstashConfig.ENABLED))) {
 				return;
 			};
