@@ -16,8 +16,10 @@ import java.nio.charset.StandardCharsets;
 import java.security.KeyManagementException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.Collections;
 import java.util.Enumeration;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.BlockingDeque;
@@ -38,6 +40,10 @@ import org.osgi.service.log.LogListener;
 import org.osgi.service.log.LogReaderService;
 import org.osgi.service.log.LogService;
 
+import com.qivicon.gateway.messagingadapter.api.MessagingPublisher;
+import com.qivicon.gateway.messagingadapter.api.QbertMessage;
+import com.qivicon.gateway.messagingadapter.api.QbertMessageRoutingKey;
+
 import de.sjka.logstash.osgi.ILogstashConfiguration;
 import de.sjka.logstash.osgi.ILogstashConfiguration.LogstashConfig;
 import de.sjka.logstash.osgi.ILogstashFilter;
@@ -51,11 +57,12 @@ public class LogstashSender implements Runnable, LogListener {
 	private String ipAddress;
 	private BlockingDeque<LogEntry> queue = new LinkedBlockingDeque<>();
 	private Thread thread;
-	
+
 	private SSLSocketFactory sslSocketFactory;
     private ILogstashConfiguration logstashConfiguration;
     private Set<ILogstashPropertyExtension> logstashPropertyExtensions = new HashSet<>();
     private Set<ILogstashFilter> logstashFilters = new HashSet<>();
+    private MessagingPublisher messagingPublisher;
 
 	@Override
 	public void run() {
@@ -78,7 +85,7 @@ public class LogstashSender implements Runnable, LogListener {
 		}
 		System.out.println("Logstash sender shutting down");
 	}
-	
+
     private String getConfig(ILogstashConfiguration.LogstashConfig key) {
 	    if (logstashConfiguration != null) {
             return logstashConfiguration.getConfiguration(key);
@@ -129,24 +136,58 @@ public class LogstashSender implements Runnable, LogListener {
 			}
 			try {
 				JSONObject values = serializeLogEntry(logEntry);
+                String payload = values.toJSONString();
+                final byte[] postData = payload.getBytes(StandardCharsets.UTF_8);
+                if (messagingPublisher != null) {
+                    messagingPublisher.sendDirectSync(new QbertMessage() {
 
-				String payload = values.toJSONString();
-				byte[] postData = payload.getBytes(StandardCharsets.UTF_8);
+                        @Override
+                        public boolean hasContentType(String contentType) {
+                            return true;
+                        }
+
+                        @Override
+                        public QbertMessageRoutingKey getRoutingKey() {
+
+                            return new QbertMessageRoutingKey("", "logMessages", "logMessages", "logMessages");
+                        }
+
+                        @Override
+                        public Map<String, Object> getMetadata() {
+                            return Collections.EMPTY_MAP;
+                        }
+
+                        @Override
+                        public String getContentType() {
+                            return "";
+                        }
+
+                        @Override
+                        public byte[] getContent() {
+                            return postData;
+                        }
+                    });
+                } else {
+                    System.out.println("MessagingPublisher is null");
+                }
+                System.out.println("Message:" + payload);
+
 
                 String username = getConfig(LogstashConfig.USERNAME);
                 String password = getConfig(LogstashConfig.PASSWORD);
-				
+
 				String authString = username + ":" + password;
 				byte[] authEncBytes = Base64.encodeBase64(authString.getBytes());
 				String authStringEnc = new String(authEncBytes);
-				
+
 				URL url = new URL(request);
-				
+
 				HttpURLConnection conn = (HttpURLConnection) url.openConnection();
                 if (request.startsWith("https") && "true".equals(getConfig(LogstashConfig.SSL_NO_CHECK))) {
                     if (sslSocketFactory != null) {
                         ((HttpsURLConnection) conn).setSSLSocketFactory(sslSocketFactory);
                         ((HttpsURLConnection) conn).setHostnameVerifier(new HostnameVerifier() {
+                            @Override
                             public boolean verify(String hostname, SSLSession session) {
                                 return true;
                             }
@@ -161,7 +202,7 @@ public class LogstashSender implements Runnable, LogListener {
 				conn.setReadTimeout(30*1000);
 				conn.setConnectTimeout(30*1000);
 				if (username != null && !"".equals(username)) {
-					conn.setRequestProperty("Authorization", "Basic " + authStringEnc);				
+					conn.setRequestProperty("Authorization", "Basic " + authStringEnc);
 				}
 				conn.setUseCaches(false);
 				try (DataOutputStream wr = new DataOutputStream(conn.getOutputStream())) {
@@ -176,7 +217,7 @@ public class LogstashSender implements Runnable, LogListener {
 				throw new RuntimeException(e);
 			}
 		}
-		
+
 	}
 
 	@SuppressWarnings("unchecked")
@@ -237,7 +278,9 @@ public class LogstashSender implements Runnable, LogListener {
 			StringBuffer hexString = new StringBuffer();
 	        for (int i = 0; i < hash.length; i++) {
 	            String hex = Integer.toHexString(0xff & hash[i]);
-	            if(hex.length() == 1) hexString.append('0');
+	            if(hex.length() == 1) {
+                    hexString.append('0');
+                }
 	            hexString.append(hex);
 	        }
 	        return hexString.toString();
@@ -245,7 +288,7 @@ public class LogstashSender implements Runnable, LogListener {
 			throw new RuntimeException(e);
 		}
 	}
-	
+
 	private String getBundleState(int state) {
 		switch (state) {
 		case Bundle.UNINSTALLED:
@@ -325,6 +368,16 @@ public class LogstashSender implements Runnable, LogListener {
         logReaderService.addLogListener(this);
     }
 
+    protected void bindMessagingPublisher(MessagingPublisher messagingPublisher) {
+        System.out.println("binding messagingPublisher");
+        this.messagingPublisher = messagingPublisher;
+    }
+
+    protected void unbindMessagingPublisher(MessagingPublisher messagingPublisher) {
+        System.out.println("Removing MessagingPublisher");
+        this.messagingPublisher = null;
+    }
+
     protected void unbindLogReaderService(LogReaderService logReaderService) {
         System.out.println("Removing LogstashSender as a listener.");
         logReaderService.removeLogListener(this);
@@ -364,7 +417,7 @@ public class LogstashSender implements Runnable, LogListener {
     protected void bindLogstashFilter(ILogstashFilter logstashFilter) {
         this.logstashFilters.add(logstashFilter);
     }
-    
+
     protected void unbindLogstashFilter(ILogstashFilter logstashFilter) {
         this.logstashFilters.remove(logstashFilter);
     }

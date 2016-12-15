@@ -2,13 +2,14 @@ Manifest-Version: 1.0
 Bundle-ManifestVersion: 2
 Bundle-Name: Logstash OSGi Plugin
 Bundle-SymbolicName: de.sjka.logstash.osgi
-Bundle-Version: 0.1.0.qualifier
+Bundle-Version: 0.1.1.qualifier
 Bundle-Vendor: Simon Kaufmann
 Bundle-RequiredExecutionEnvironment: JavaSE-1.7
 Import-Package: de.sjka.logstash.osgi,
  org.osgi.framework,
  org.osgi.service.log,
- org.osgi.util.tracker
+ org.osgi.util.tracker,
+ com.qivicon.gateway.messagingadapter.api
 Bundle-ClassPath: lib/json-simple-1.1.1.jar,
  lib/commons-codec-1.10.jar,
  patch/,

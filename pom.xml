@@ -7,7 +7,7 @@
   <artifactId>de.sjka.logstash.parent</artifactId>
   <packaging>pom</packaging>
   
-  <version>0.1.0-SNAPSHOT</version>
+  <version>0.1.1-SNAPSHOT</version>
 
   <modules>
     <module>bundles/de.sjka.logstash.osgi</module>
@@ -27,6 +27,21 @@
       <url>${mars-repo.url}</url>
       <layout>p2</layout>
     </repository>
+	<repository>
+        <id>messaging</id>
+        <url>http://qivicon-wbench.psst.t-online.corp/nexus/content/unzip/snapshots_unzip/com/qivicon/gateway/com.qivicon.gateway.messaging.repo/1.0.0-SNAPSHOT/com.qivicon.gateway.messaging.repo-1.0.0-SNAPSHOT.zip-unzip/</url>
+        <layout>p2</layout>
+	</repository>
+	<repository>
+		<id>orbit</id>
+		<url>http://qivicon-wbench.psst.t-online.corp/nexus/content/unzip/snapshots_unzip/com/qivicon/orbit/com.qivicon.orbit.repo/1.0.11-SNAPSHOT/com.qivicon.orbit.repo-1.0.11-SNAPSHOT.zip-unzip/</url>
+		<layout>p2</layout>
+	</repository>
+	<repository>
+		<id>prosyst</id>
+		<url>http://qivicon-wbench.psst.t-online.corp/nexus/content/unzip/snapshots_unzip/com/qivicon/runtime/prosyst-repository/SNAPSHOT/prosyst-repository-SNAPSHOT-bin.zip-unzip/</url>
+		<layout>p2</layout>
+	</repository>
   </repositories>
 
   <build>
