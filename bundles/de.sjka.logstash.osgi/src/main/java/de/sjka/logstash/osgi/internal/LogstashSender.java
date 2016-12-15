@@ -127,6 +127,7 @@ public class LogstashSender implements Runnable, LogListener {
 			if (!request.endsWith("/")) {
 				request += "/";
 			}
+			HttpURLConnection conn = null;
 			try {
 				JSONObject values = serializeLogEntry(logEntry);
 
@@ -142,7 +143,7 @@ public class LogstashSender implements Runnable, LogListener {
 				
 				URL url = new URL(request);
 				
-				HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+				conn = (HttpURLConnection) url.openConnection();
                 if (request.startsWith("https") && "true".equals(getConfig(LogstashConfig.SSL_NO_CHECK))) {
                     if (sslSocketFactory != null) {
                         ((HttpsURLConnection) conn).setSSLSocketFactory(sslSocketFactory);
@@ -174,6 +175,10 @@ public class LogstashSender implements Runnable, LogListener {
 				}
 			} catch (IOException e) {
 				throw new RuntimeException(e);
+			} finally {
+				if (conn != null) {
+					conn.disconnect();
+				}
 			}
 		}
 		
