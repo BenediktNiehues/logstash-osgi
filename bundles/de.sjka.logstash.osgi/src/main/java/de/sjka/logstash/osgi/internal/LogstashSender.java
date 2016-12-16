@@ -1,3 +1,10 @@
+/**
+ * Copyright (c) 2014-2016 by the respective copyright holders.
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Public License v1.0
+ * which accompanies this distribution, and is available at
+ * http://www.eclipse.org/legal/epl-v10.html
+ */
 package de.sjka.logstash.osgi.internal;
 
 import java.io.DataOutputStream;
@@ -44,6 +51,15 @@ import de.sjka.logstash.osgi.ILogstashFilter;
 import de.sjka.logstash.osgi.ILogstashPropertyExtension;
 import de.sjka.logstash.osgi.ITrustManagerFactory;
 
+/**
+ * Internal implementation of the logstash sender.
+ * 
+ * It listens to the OSGi {@link LogService} and forwards the log messages to a
+ * configured logstash instance.
+ * 
+ * @author Simon Kaufmann - Initial contribution and API.
+ *
+ */
 public class LogstashSender implements Runnable, LogListener {
 
     private static final int QUEUE_SIZE = 2 * 1024;
