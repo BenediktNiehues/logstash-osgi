@@ -17,6 +17,11 @@ import javax.net.ssl.TrustManager;
  */
 public interface ITrustManagerFactory {
 
-    public TrustManager createTrustManager();
+	/**
+	 * Create a custom trust manager for HTTPS connections.
+	 * 
+	 * @return the trust manager
+	 */
+	public TrustManager createTrustManager();
 
 }

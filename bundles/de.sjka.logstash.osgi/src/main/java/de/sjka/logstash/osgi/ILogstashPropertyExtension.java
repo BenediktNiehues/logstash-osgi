@@ -19,6 +19,15 @@ import org.osgi.service.log.LogEntry;
  */
 public interface ILogstashPropertyExtension {
 
-    public Map<String, String> getExtensions(LogEntry logEntry);
+	/**
+	 * Determine additional key-value-pairs which should be included in the
+	 * message sent to logstash.
+	 * 
+	 * @param logEntry
+	 *            the OGSi {@link LogEntry}
+	 * @return a map of additional key-value-pairs to be included in the message
+	 *         sent to logstash
+	 */
+	public Map<String, String> getExtensions(LogEntry logEntry);
 
 }

@@ -62,31 +62,32 @@ import de.sjka.logstash.osgi.ITrustManagerFactory;
  */
 public class LogstashSender implements Runnable, LogListener {
 
-    private static final int QUEUE_SIZE = 2 * 1024;
+	private static final int SECONDS = 1000;
+	private static final int QUEUE_SIZE = 1024;
 
 	private String ipAddress;
 	private BlockingDeque<LogEntry> queue = new LinkedBlockingDeque<>();
 	private Thread thread;
-	
+
 	private SSLSocketFactory sslSocketFactory;
-    private ILogstashConfiguration logstashConfiguration;
-    private Set<ILogstashPropertyExtension> logstashPropertyExtensions = new HashSet<>();
-    private Set<ILogstashFilter> logstashFilters = new HashSet<>();
+	private ILogstashConfiguration logstashConfiguration;
+	private Set<ILogstashPropertyExtension> logstashPropertyExtensions = new HashSet<>();
+	private Set<ILogstashFilter> logstashFilters = new HashSet<>();
 
 	@Override
 	public void run() {
 		System.out.println("Logstash sender started");
 		try {
-			while (!Thread.interrupted()) {
+			while (true) {
+				if (Thread.interrupted()) {
+					throw new InterruptedException();
+				}
 				LogEntry entry = queue.takeFirst();
 				try {
 					process(entry);
 				} catch (Exception e) {
-					if (e instanceof InterruptedException) {
-						throw e; // leave the loop
-					}
 					queue.putFirst(entry);
-					Thread.sleep(5*1000);
+					Thread.sleep(60 * SECONDS);
 				}
 			}
 		} catch (InterruptedException e) {
@@ -94,52 +95,53 @@ public class LogstashSender implements Runnable, LogListener {
 		}
 		System.out.println("Logstash sender shutting down");
 	}
-	
-    private String getConfig(ILogstashConfiguration.LogstashConfig key) {
-	    if (logstashConfiguration != null) {
-            return logstashConfiguration.getConfiguration(key);
-        } else {
-            return key.defaultValue();
-	    }
+
+	private String getConfig(ILogstashConfiguration.LogstashConfig key) {
+		if (logstashConfiguration != null) {
+			return logstashConfiguration.getConfiguration(key);
+		} else {
+			return key.defaultValue();
+		}
 	}
 
-    private int getLogLevelConfig() {
-        String configuredLoglevel = getConfig(LogstashConfig.LOGLEVEL);
-        if (configuredLoglevel != null) {
-            switch (configuredLoglevel.toLowerCase()) {
-                case "debug":
-                    return LogService.LOG_DEBUG;
-                case "error":
-                    return LogService.LOG_ERROR;
-                case "info":
-                    return LogService.LOG_INFO;
-                case "warning":
-                    return LogService.LOG_WARNING;
-                default:
-                    return LogService.LOG_WARNING;
-            }
-        }
-        return LogService.LOG_WARNING;
-    }
+	private int getLogLevelConfig() {
+		String configuredLoglevel = getConfig(LogstashConfig.LOGLEVEL);
+		if (configuredLoglevel != null) {
+			switch (configuredLoglevel.toLowerCase()) {
+			case "debug":
+				return LogService.LOG_DEBUG;
+			case "error":
+				return LogService.LOG_ERROR;
+			case "info":
+				return LogService.LOG_INFO;
+			case "warning":
+				return LogService.LOG_WARNING;
+			default:
+				return LogService.LOG_WARNING;
+			}
+		}
+		return LogService.LOG_WARNING;
+	}
 
 	@Override
 	public void logged(LogEntry logEntry) {
-        if (queue.size() < QUEUE_SIZE) {
-        	queue.add(logEntry);
+		if (queue.size() < QUEUE_SIZE) {
+			queue.add(logEntry);
 		}
 	}
 
 	private void process(LogEntry logEntry) {
-        if (logEntry.getLevel() <= getLogLevelConfig()) {
-            if (!"true".equals(getConfig(LogstashConfig.ENABLED))) {
+		if (logEntry.getLevel() <= getLogLevelConfig()) {
+			if (!"true".equals(getConfig(LogstashConfig.ENABLED))) {
 				return;
-			};
-	        for (ILogstashFilter logstashFilter : logstashFilters) {
-	            if (!logstashFilter.apply(logEntry)) {
-	                return;
-	            }
-	        }
-            String request = getConfig(LogstashConfig.URL);
+			}
+			;
+			for (ILogstashFilter logstashFilter : logstashFilters) {
+				if (!logstashFilter.apply(logEntry)) {
+					return;
+				}
+			}
+			String request = getConfig(LogstashConfig.URL);
 			if (!request.endsWith("/")) {
 				request += "/";
 			}
@@ -150,35 +152,36 @@ public class LogstashSender implements Runnable, LogListener {
 				String payload = values.toJSONString();
 				byte[] postData = payload.getBytes(StandardCharsets.UTF_8);
 
-                String username = getConfig(LogstashConfig.USERNAME);
-                String password = getConfig(LogstashConfig.PASSWORD);
-				
+				String username = getConfig(LogstashConfig.USERNAME);
+				String password = getConfig(LogstashConfig.PASSWORD);
+
 				String authString = username + ":" + password;
 				byte[] authEncBytes = Base64.encodeBase64(authString.getBytes());
 				String authStringEnc = new String(authEncBytes);
-				
+
 				URL url = new URL(request);
-				
+
 				conn = (HttpURLConnection) url.openConnection();
-                if (request.startsWith("https") && "true".equals(getConfig(LogstashConfig.SSL_NO_CHECK))) {
-                    if (sslSocketFactory != null) {
-                        ((HttpsURLConnection) conn).setSSLSocketFactory(sslSocketFactory);
-                        ((HttpsURLConnection) conn).setHostnameVerifier(new HostnameVerifier() {
-                            public boolean verify(String hostname, SSLSession session) {
-                                return true;
-                            }
-                        });
-                    }
+				if (request.startsWith("https") && "true".equals(getConfig(LogstashConfig.SSL_NO_CHECK))) {
+					if (sslSocketFactory != null) {
+						((HttpsURLConnection) conn).setSSLSocketFactory(sslSocketFactory);
+						((HttpsURLConnection) conn).setHostnameVerifier(new HostnameVerifier() {
+							@Override
+							public boolean verify(String hostname, SSLSession session) {
+								return true;
+							}
+						});
+					}
 				}
 				conn.setDoOutput(true);
 				conn.setInstanceFollowRedirects(false);
 				conn.setRequestMethod("PUT");
 				conn.setRequestProperty("Content-Type", "application/json");
 				conn.setRequestProperty("charset", "utf-8");
-				conn.setReadTimeout(30*1000);
-				conn.setConnectTimeout(30*1000);
+				conn.setReadTimeout(30 * SECONDS);
+				conn.setConnectTimeout(30 * SECONDS);
 				if (username != null && !"".equals(username)) {
-					conn.setRequestProperty("Authorization", "Basic " + authStringEnc);				
+					conn.setRequestProperty("Authorization", "Basic " + authStringEnc);
 				}
 				conn.setUseCaches(false);
 				try (DataOutputStream wr = new DataOutputStream(conn.getOutputStream())) {
@@ -197,7 +200,7 @@ public class LogstashSender implements Runnable, LogListener {
 				}
 			}
 		}
-		
+
 	}
 
 	@SuppressWarnings("unchecked")
@@ -212,35 +215,32 @@ public class LogstashSender implements Runnable, LogListener {
 		}
 		if (logEntry.getException() != null) {
 			StackTraceElement[] stackTrace = logEntry.getException().getStackTrace();
-			StringWriter sw = new StringWriter();
-			PrintWriter pw = new PrintWriter(sw);
-			logEntry.getException().printStackTrace(pw);
-			String stackTraceString = sw.toString();
-			pw.close();
-			try {
-				sw.close();
+			try (StringWriter sw = new StringWriter(); PrintWriter pw = new PrintWriter(sw)) {
+				logEntry.getException().printStackTrace(pw);
+				String stackTraceString = sw.toString();
+				values.put("exception-type", logEntry.getException().getClass().getName());
+				values.put("exception-message", logEntry.getException().getMessage());
+				values.put("exception-stacktrace", stackTraceString);
 			} catch (IOException e) {
-				// StringWriter... All good.
+				// It's a StringWriter... All good!
 			}
-			values.put("exception-type", logEntry.getException().getClass().getName());
-			values.put("exception-message", logEntry.getException().getMessage());
-			values.put("exception-stacktrace", stackTraceString);
 			if (stackTrace != null && stackTrace.length > 0) {
 				values.put("exception-class", stackTrace[0].getClassName());
 				values.put("exception-method", stackTrace[0].getMethodName());
 				values.put("exception-line", stackTrace[0].getLineNumber() + "");
-				values.put("error-id", hash(stackTrace[0].getClassName(), stackTrace[0].getMethodName(), logEntry.getException().getClass().getName()));
+				values.put("error-id", hash(stackTrace[0].getClassName(), stackTrace[0].getMethodName(),
+						logEntry.getException().getClass().getName()));
 			} else {
-                values.put("error-id",
-                        hash(logEntry.getBundle().getSymbolicName(), logEntry.getException().getMessage()));
+				values.put("error-id",
+						hash(logEntry.getBundle().getSymbolicName(), logEntry.getException().getMessage()));
 			}
 		} else {
 			values.put("error-id", hash(logEntry.getBundle().getSymbolicName(), logEntry.getMessage()));
 		}
-        for (ILogstashPropertyExtension logstashPropertyExtension : logstashPropertyExtensions) {
-            for (Entry<String, String> entry : logstashPropertyExtension.getExtensions(logEntry).entrySet()) {
-                values.put(entry.getKey(), entry.getValue());
-            }
+		for (ILogstashPropertyExtension logstashPropertyExtension : logstashPropertyExtensions) {
+			for (Entry<String, String> entry : logstashPropertyExtension.getExtensions(logEntry).entrySet()) {
+				values.put(entry.getKey(), entry.getValue());
+			}
 		}
 		values.put("ip", getIPAddress());
 		return values;
@@ -256,17 +256,18 @@ public class LogstashSender implements Runnable, LogListener {
 			digest = MessageDigest.getInstance("SHA-256");
 			byte[] hash = digest.digest(sb.toString().getBytes("UTF-8"));
 			StringBuffer hexString = new StringBuffer();
-	        for (int i = 0; i < hash.length; i++) {
-	            String hex = Integer.toHexString(0xff & hash[i]);
-	            if(hex.length() == 1) hexString.append('0');
-	            hexString.append(hex);
-	        }
-	        return hexString.toString();
+			for (int i = 0; i < hash.length; i++) {
+				String hex = Integer.toHexString(0xff & hash[i]);
+				if (hex.length() == 1)
+					hexString.append('0');
+				hexString.append(hex);
+			}
+			return hexString.toString();
 		} catch (NoSuchAlgorithmException | UnsupportedEncodingException e) {
 			throw new RuntimeException(e);
 		}
 	}
-	
+
 	private String getBundleState(int state) {
 		switch (state) {
 		case Bundle.UNINSTALLED:
@@ -327,7 +328,7 @@ public class LogstashSender implements Runnable, LogListener {
 
 	public void start() {
 		if (thread != null) {
-            throw new IllegalStateException("LogstashSender thread is already running!");
+			throw new IllegalStateException("LogstashSender thread is already running!");
 		}
 		thread = new Thread(this);
 		thread.start();
@@ -335,59 +336,59 @@ public class LogstashSender implements Runnable, LogListener {
 
 	public void stop() {
 		if (thread == null) {
-            throw new IllegalStateException("LogstashSender thread is not running!");
+			throw new IllegalStateException("LogstashSender thread is not running!");
 		}
 		thread.interrupt();
 		thread = null;
 	}
 
-    protected void bindLogReaderService(LogReaderService logReaderService) {
-        System.out.println("Adding LogstashSender as a listener.");
-        logReaderService.addLogListener(this);
-    }
+	protected void bindLogReaderService(LogReaderService logReaderService) {
+		System.out.println("Adding LogstashSender as a listener.");
+		logReaderService.addLogListener(this);
+	}
 
-    protected void unbindLogReaderService(LogReaderService logReaderService) {
-        System.out.println("Removing LogstashSender as a listener.");
-        logReaderService.removeLogListener(this);
-    }
+	protected void unbindLogReaderService(LogReaderService logReaderService) {
+		System.out.println("Removing LogstashSender as a listener.");
+		logReaderService.removeLogListener(this);
+	}
 
-    protected void bindLogstashConfiguration(ILogstashConfiguration logstashConfiguration) {
-        this.logstashConfiguration = logstashConfiguration;
-    }
+	protected void bindLogstashConfiguration(ILogstashConfiguration logstashConfiguration) {
+		this.logstashConfiguration = logstashConfiguration;
+	}
 
-    protected void unbindLogstashConfiguration(ILogstashConfiguration logstashConfiguration) {
-        this.logstashConfiguration = null;
-    }
+	protected void unbindLogstashConfiguration(ILogstashConfiguration logstashConfiguration) {
+		this.logstashConfiguration = null;
+	}
 
-    protected void bindTrustManagerFactory(ITrustManagerFactory trustManagerFactory) {
-        try {
-            final SSLContext sslContext = SSLContext.getInstance("SSL");
-            final TrustManager[] trustAllCerts = new TrustManager[] { trustManagerFactory.createTrustManager() };
-            sslContext.init(null, trustAllCerts, new java.security.SecureRandom());
-            sslSocketFactory = sslContext.getSocketFactory();
-        } catch (KeyManagementException | NoSuchAlgorithmException e) {
-            throw new RuntimeException(e);
-        }
-    }
+	protected void bindTrustManagerFactory(ITrustManagerFactory trustManagerFactory) {
+		try {
+			final SSLContext sslContext = SSLContext.getInstance("SSL");
+			final TrustManager[] trustAllCerts = new TrustManager[] { trustManagerFactory.createTrustManager() };
+			sslContext.init(null, trustAllCerts, new java.security.SecureRandom());
+			sslSocketFactory = sslContext.getSocketFactory();
+		} catch (KeyManagementException | NoSuchAlgorithmException e) {
+			throw new RuntimeException(e);
+		}
+	}
 
-    protected void unbindTrustManagerFactory(ITrustManagerFactory trustManagerFactory) {
-        sslSocketFactory = null;
-    }
+	protected void unbindTrustManagerFactory(ITrustManagerFactory trustManagerFactory) {
+		sslSocketFactory = null;
+	}
 
-    protected void bindLogstashPropertyExtension(ILogstashPropertyExtension logstashPropertyExtension) {
-        this.logstashPropertyExtensions.add(logstashPropertyExtension);
-    }
+	protected void bindLogstashPropertyExtension(ILogstashPropertyExtension logstashPropertyExtension) {
+		this.logstashPropertyExtensions.add(logstashPropertyExtension);
+	}
 
-    protected void unbindLogstashPropertyExtension(ILogstashPropertyExtension logstashPropertyExtension) {
-        this.logstashPropertyExtensions.remove(logstashPropertyExtension);
-    }
+	protected void unbindLogstashPropertyExtension(ILogstashPropertyExtension logstashPropertyExtension) {
+		this.logstashPropertyExtensions.remove(logstashPropertyExtension);
+	}
 
-    protected void bindLogstashFilter(ILogstashFilter logstashFilter) {
-        this.logstashFilters.add(logstashFilter);
-    }
-    
-    protected void unbindLogstashFilter(ILogstashFilter logstashFilter) {
-        this.logstashFilters.remove(logstashFilter);
-    }
+	protected void bindLogstashFilter(ILogstashFilter logstashFilter) {
+		this.logstashFilters.add(logstashFilter);
+	}
+
+	protected void unbindLogstashFilter(ILogstashFilter logstashFilter) {
+		this.logstashFilters.remove(logstashFilter);
+	}
 
 }
