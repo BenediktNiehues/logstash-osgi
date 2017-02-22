@@ -13,7 +13,7 @@ import org.osgi.service.log.LogEntry;
 
 /**
  * Extender to attach additional key-value-pairs to a log message.
- * 
+ *
  * @author Simon Kaufmann - Initial contribution and API.
  *
  */
@@ -22,12 +22,12 @@ public interface ILogstashPropertyExtension {
 	/**
 	 * Determine additional key-value-pairs which should be included in the
 	 * message sent to logstash.
-	 * 
+	 *
 	 * @param logEntry
 	 *            the OGSi {@link LogEntry}
 	 * @return a map of additional key-value-pairs to be included in the message
 	 *         sent to logstash
 	 */
-	public Map<String, String> getExtensions(LogEntry logEntry);
+    public Map<String, Object> getExtensions(LogEntry logEntry);
 
 }

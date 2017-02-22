@@ -13,8 +13,8 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Enumeration;
 import java.util.HashSet;
-import java.util.Set;
 import java.util.Map.Entry;
+import java.util.Set;
 
 import org.json.simple.JSONObject;
 import org.osgi.framework.Bundle;
@@ -27,7 +27,7 @@ import de.sjka.logstash.osgi.ILogstashSerializer;
 /**
  * Implementation of {@link ILogstashSerializer}.
  * Serializes and enriches {@link LogEntry}.
- * 
+ *
  * @author Christoph Knauf - Initial contribution and API.
  *
  */
@@ -71,7 +71,7 @@ public class LogstashSerializer implements ILogstashSerializer {
             values.put("error-id", hash(logEntry.getBundle().getSymbolicName(), logEntry.getMessage()));
         }
         for (ILogstashPropertyExtension logstashPropertyExtension : logstashPropertyExtensions) {
-            for (Entry<String, String> entry : logstashPropertyExtension.getExtensions(logEntry).entrySet()) {
+            for (Entry<String, Object> entry : logstashPropertyExtension.getExtensions(logEntry).entrySet()) {
                 values.put(entry.getKey(), entry.getValue());
             }
         }
