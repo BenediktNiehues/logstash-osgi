@@ -5,4 +5,5 @@
    <reference bind="bindLogstashConfiguration" cardinality="0..1" interface="de.sjka.logstash.osgi.ILogstashConfiguration" name="ILogstashConfiguration" policy="dynamic" unbind="unbindLogstashConfiguration"/>
    <reference bind="bindTrustManagerFactory" cardinality="0..1" interface="de.sjka.logstash.osgi.ITrustManagerFactory" name="ITrustManagerFactory" policy="dynamic" unbind="unbindTrustManagerFactory"/>
    <reference bind="bindLogstashFilter" cardinality="0..n" interface="de.sjka.logstash.osgi.ILogstashFilter" name="ILogstashFilter" policy="dynamic" unbind="unbindLogstashFilter"/>
+   <reference bind="bindLogstashSerializer" cardinality="1..1" interface="de.sjka.logstash.osgi.ILogstashSerializer" name="ILogstashSerializer" policy="static" unbind="unbindLogstashSerializer"/>
 </scr:component>

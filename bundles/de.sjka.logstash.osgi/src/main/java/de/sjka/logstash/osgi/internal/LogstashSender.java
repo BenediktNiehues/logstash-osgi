@@ -251,7 +251,9 @@ public class LogstashSender implements LogListener {
                     try {
                         if (shouldSend(entry)) {
                             JSONObject jsonObj = logstashSerializer.serialize(entry);
-                            senderQueue.put(jsonObj);
+                            if (senderQueue.size() < QUEUE_SIZE) {
+                                senderQueue.add(jsonObj);
+                            }
                         }
                     } catch (Exception e) {
                         entryQueue.putFirst(entry);

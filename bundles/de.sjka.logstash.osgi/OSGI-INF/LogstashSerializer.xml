@@ -2,4 +2,7 @@
 <scr:component xmlns:scr="http://www.osgi.org/xmlns/scr/v1.1.0" activate="start" name="de.sjka.logstash.osgi.LogstashSerializer">
    <implementation class="de.sjka.logstash.osgi.internal.LogstashSerializer"/>
    <reference bind="bindLogstashPropertyExtension" cardinality="0..1" interface="de.sjka.logstash.osgi.ILogstashPropertyExtension" name="ILogstashPropertyExtension" policy="dynamic" unbind="unbindLogstashPropertyExtension"/>
+   <service>
+      <provide interface="de.sjka.logstash.osgi.ILogstashSerializer"/>
+   </service>
 </scr:component>

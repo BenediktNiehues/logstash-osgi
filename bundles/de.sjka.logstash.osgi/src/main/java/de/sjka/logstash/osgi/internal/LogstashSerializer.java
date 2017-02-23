@@ -35,6 +35,10 @@ public class LogstashSerializer implements ILogstashSerializer {
 
     private Set<ILogstashPropertyExtension> logstashPropertyExtensions = new HashSet<>();
 
+    protected void start() {
+
+    }
+
     @Override
     @SuppressWarnings("unchecked")
     public JSONObject serialize(LogEntry logEntry) {
