@@ -13,5 +13,5 @@ Bundle-ClassPath: lib/json-simple-1.1.1.jar,
  lib/commons-codec-1.10.jar,
  patch/,
  .
-Service-Component: OSGI-INF/LogstashSender.xml
+Service-Component: OSGI-INF/*.xml
 Export-Package: de.sjka.logstash.osgi
