@@ -108,8 +108,9 @@ public class LogstashSender implements LogListener {
                     return false;
                 }
             }
+            return true;
         }
-        return true;
+        return false;
     }
 
     private void send(JSONObject values) {
